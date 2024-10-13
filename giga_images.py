@@ -1,3 +1,4 @@
+import logging
 import os
 from io import BytesIO
 
@@ -8,14 +9,15 @@ from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from manager_cw_bot_api.buttons import Buttons
-from manager_cw_bot_api.giga_request import create
+from manager_cw_bot_api.giga_request import VersionAIImagePro
 from manager_cw_bot_api.fsm_handler import GigaImage
+from manager_cw_bot_api.handler_db_sub_operations import HandlerDB
 
 router_ai_img: Router = Router()
 
 
 class GigaCreator:
-    """Class of create image for plus-user."""
+    """Class of create image for premium-user."""
     __query: str = ""
 
     def __init__(self, bot: Bot) -> None:
@@ -28,7 +30,7 @@ class GigaCreator:
 
     async def get_query(self, call: types.CallbackQuery, state: FSMContext) -> None:
         """
-        Func of get query from plus-user for create image.
+        Func of get query from premium-user for create image.
 
         :param call: Callback Query.
         :param state: FSM.
@@ -51,13 +53,23 @@ class GigaCreator:
 
         :return: None
         """
+        await state.clear()
         var: InlineKeyboardBuilder = await Buttons.generate_image()
         self.__class__.__query = message.text
         await self.__bot.send_message(
             chat_id=message.chat.id,
-            text=f"{message.from_user.first_name}, are you want to *generate image*? Are you sure?",
+            text=f"{message.from_user.first_name}, are you want to *generate image*? "
+                 f"Are you sure?",
             reply_markup=var.as_markup(),
             parse_mode="Markdown"
+        )
+        await self.__bot.set_message_reaction(
+            chat_id=message.from_user.id,
+            message_id=message.message_id,
+            reaction=[types.ReactionTypeEmoji(
+                types='emoji',
+                emoji='🫡'
+            )]
         )
         router_ai_img.callback_query.register(
             self.__handler_query,
@@ -66,7 +78,7 @@ class GigaCreator:
 
     async def __handler_query(self, call: types.CallbackQuery) -> None:
         """
-        Manage of query from plus-user for create image.
+        Manage of query from premium-user for create image.
 
         :param call: Call-Query.
         :return: None.
@@ -79,15 +91,17 @@ class GigaCreator:
                 text="💫 Please, wait! I'm generating... ⏳",
                 message_id=call.message.message_id
             )
-        except Exception:
+        except Exception as ex:
+            logging.warning(f"The exception has arisen: {ex}.")
+
             await self.__bot.send_message(
                 chat_id=call.from_user.id,
                 text="💫 Please, wait! I'm generating... ⏳",
             )
 
-        image_data: bytes | str = await create(query)
+        image_data: str | bytes = await VersionAIImagePro.request(query)
         try:
-            if image_data == "👌🏻 Sorry! I updated the data. Please, repeat your request :)":
+            if image_data == "Sorry! I updated the data. Please, repeat your request :)":
                 var: InlineKeyboardBuilder = await Buttons.back_on_main()
                 await self.__bot.edit_message_text(
                     chat_id=call.from_user.id,
@@ -97,16 +111,17 @@ class GigaCreator:
                 )
             else:
                 image: Image = Image.open(BytesIO(image_data))
-                temp_image: str = 'AI_Photo_Generate_By_Kandinsky_Manager_PLUS_Version.jpg'
+                temp_image: str = 'AI_Photo_By_CW_PREMIUM_Version.jpg'
                 image.save(temp_image, 'JPEG')
 
                 await self.__bot.send_document(
                     chat_id=call.from_user.id,
                     document=FSInputFile(temp_image),
-                    caption=f"<b>{call.from_user.first_name}</b>, the new photo has been generated according to your "
-                            f"request: <blockquote>{self.__class__.__query}</blockquote>\n\n"
-                            f"✨ There are still generations left: ♾.\n\nThe photo is attached to the message as a "
-                            f"file. Download it by clicking on the button above.\n\n"
+                    caption=f"<b>{call.from_user.first_name}</b>, the new photo has been generated"
+                            f" according to your request: <blockquote>{self.__class__.__query}"
+                            f"</blockquote>\n\n✨ There are still generations left: ♾.\n\nThe "
+                            f"photo is attached to the message as a file. Download it by clicking "
+                            f"on the button above.\n\n"
                             f"#AI_Photo\nDeveloper: @aleksandr_twitt.",
                     parse_mode="HTML",
                     message_effect_id='5104841245755180586'
@@ -121,15 +136,19 @@ class GigaCreator:
                     reply_markup=var.as_markup()
                 )
 
+                await HandlerDB.update_analytic_datas_count_ai_queries()
+
                 await self.__bot.delete_message(
                     chat_id=call.from_user.id,
                     message_id=call.message.message_id
                 )
 
         except Exception as ex:
-            print(ex)
+            logging.warning(f"The exception has arisen: {ex}.")
+
             var: InlineKeyboardBuilder = await Buttons.back_on_main()
-            if "cannot identify image file" in str(ex) or "bytes-like object is required, not 'str'" in str(ex):
+            if ("cannot identify image file" in str(ex) or
+                    "bytes-like object is required, not 'str'" in str(ex)):
                 await self.__bot.edit_message_text(
                     chat_id=call.from_user.id,
                     text=image_data,
@@ -139,7 +158,8 @@ class GigaCreator:
             else:
                 await self.__bot.edit_message_text(
                     chat_id=call.from_user.id,
-                    text="🤔 Oh, something wrong! 👌🏻 Please, don't worry! Write ticket or EMail: help@cwr.su.",
+                    text="🤔 Oh, something wrong! 👌🏻 Please, don't worry! "
+                         "Write ticket or EMail: help@cwr.su.",
                     reply_markup=var.as_markup(),
                     message_id=call.message.message_id
                 )

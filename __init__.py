@@ -21,7 +21,6 @@ from manager_cw_bot_api.handler_email_sender import *
 from manager_cw_bot_api.handler_promo import *
 from manager_cw_bot_api.handler_successful_payment import *
 from manager_cw_bot_api.handler_yookassa import *
-from manager_cw_bot_api.main import *
 from manager_cw_bot_api.mysql_connection import *
 from manager_cw_bot_api.pdf_generate_data import *
 from manager_cw_bot_api.refund import *
@@ -31,5 +30,5 @@ from manager_cw_bot_api.tickets import *
 
 
 __author__ = 'Alexander Laptev, CW'
-__version__ = '5.0.2'
+__version__ = '6.0.0'
 __email__ = 'cwr@cwr.su'

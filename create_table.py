@@ -2,6 +2,7 @@
 Module of the creation tables for the DB.
 """
 import pymysql
+import logging
 
 
 class CreateTable:
@@ -30,16 +31,23 @@ class CreateTable:
                 );
                 """
         self._cursor.execute(query)
+        logging.info(
+            "Successful 1/6: The query to create the 'users' table, which will contain the "
+            "TicketSystem data have been executed"
+        )
 
         query: str = """CREATE TABLE IF NOT EXISTS analytics (
                 count_of_ai_queries INT NOT NULL DEFAULT 1,
-                count_of_tickets_system INT NOT NULL DEFAULT 1,
-                count_of_thanks_from_users INT NOT NULL DEFAULT 1
+                count_of_tickets_system INT NOT NULL DEFAULT 1
                 );
                 """
         self._cursor.execute(query)
+        logging.info(
+            "Successful 2/6: The query to create the 'analytics' table, which will contain the "
+            "Analytics data have been executed"
+        )
 
-        query: str = f"""CREATE TABLE IF NOT EXISTS plus_users(
+        query: str = f"""CREATE TABLE IF NOT EXISTS premium_users(
                 id INTEGER PRIMARY KEY AUTO_INCREMENT,
                 tg_id VARCHAR(255) UNIQUE NOT NULL,
                 username VARCHAR(255) NOT NULL,
@@ -51,8 +59,12 @@ class CreateTable:
                 );
                 """
         self._cursor.execute(query)
+        logging.info(
+            "Successful 3/6: The query to create the 'premium_users' table, which will contain the "
+            "information about premium users have been executed"
+        )
 
-        query: str = f"""CREATE TABLE IF NOT EXISTS plus_promo_codes(
+        query: str = f"""CREATE TABLE IF NOT EXISTS premium_promo_codes(
                 id INTEGER PRIMARY KEY AUTO_INCREMENT,
                 promo_code VARCHAR(255) UNIQUE NOT NULL,
                 num_uses INTEGER NOT NULL,
@@ -60,6 +72,10 @@ class CreateTable:
                 );
                 """
         self._cursor.execute(query)
+        logging.info(
+            "Successful 4/6: The query to create the 'premium_promo_codes' table, which will "
+            "contain the Promo data have been executed"
+        )
 
         query: str = f"""CREATE TABLE IF NOT EXISTS email_addresses(
                 id INTEGER PRIMARY KEY AUTO_INCREMENT,
@@ -72,5 +88,13 @@ class CreateTable:
                 );
                 """
         self._cursor.execute(query)
+        logging.info(
+            "Successful 5/6: The query to create the 'email_addresses' table, which will "
+            "contain EmailAddresses Data of the (future) users have been executed"
+        )
         self._connection.commit()
+        logging.info(
+            "Successful 6/6 - Finish: The changes have been applied and entered (commited) "
+            "into the database."
+        )
         self._connection.close()

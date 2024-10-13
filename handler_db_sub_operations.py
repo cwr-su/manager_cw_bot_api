@@ -1,8 +1,9 @@
 """Module for control the database."""
 import json
 import time
-
+import logging
 import pymysql
+
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram import types
 
@@ -15,7 +16,7 @@ class HandlerDB:
     @staticmethod
     async def get_data(file_path="bot.json") -> dict:
         """
-        Get data of the Alex's Manager Bot.
+        Get data of the ADMIN Manager Bot.
 
         :param file_path: File Path of JSON-API-keys for Bot.
         :return: Dict with data.
@@ -27,12 +28,16 @@ class HandlerDB:
 
             dct["MYSQL"] = data["MYSQL"]
 
+            logging.info(
+                "Obtained MySQL DB data from the conf. file for communication with the database"
+            )
+
             return dct["MYSQL"]
 
     @staticmethod
     async def get_admin_email_from_file(file_path="bot.json") -> str:
         """
-        Get data of the Alex's Manager Bot.
+        Get data of the ADMIN Manager Bot.
 
         :param file_path: File Path of JSON-API-keys for Bot.
         :return: Dict with data.
@@ -53,7 +58,9 @@ class HandlerDB:
 
         :return: None.
         """
-        connection: pymysql.Connection = await Connection.get_connection(await HandlerDB.get_data())
+        connection: pymysql.Connection = await Connection.get_connection(
+            await HandlerDB.get_data()
+        )
         cursor = connection.cursor()
 
         query: str = f"""UPDATE email_addresses SET yookassa_conf_id = '{confirmation_id}' 
@@ -102,7 +109,9 @@ class HandlerDB:
             return True,
 
         except Exception as ex:
-            print(ex)
+            logging.warning(
+                f"The exception has arisen: {ex}"
+            )
             return False, ex
 
     @staticmethod
@@ -114,7 +123,9 @@ class HandlerDB:
         :return: Tuple with data-result.
         """
         try:
-            connection: pymysql.Connection = await Connection.get_connection(await HandlerDB.get_data())
+            connection: pymysql.Connection = await Connection.get_connection(
+                await HandlerDB.get_data()
+            )
             cursor = connection.cursor()
 
             query: str = "SELECT yookassa_conf_id FROM email_addresses WHERE tg_id_sender = %s;"
@@ -129,44 +140,102 @@ class HandlerDB:
                 return False, "None"
 
         except Exception as ex:
-            print(ex)
+            logging.warning(
+                f"The exception has arisen: {ex}"
+            )
             return False, ex
 
     @staticmethod
     async def yookassa_delete_record_conf_id(tg_id) -> None:
         """Fast delete record (confirmation-id of payment from yookassa)."""
         try:
-            connection: pymysql.Connection = await Connection.get_connection(await HandlerDB.get_data())
+            connection: pymysql.Connection = await Connection.get_connection(
+                await HandlerDB.get_data()
+            )
             cursor = connection.cursor()
-            query: str = f"UPDATE email_addresses SET yookassa_conf_id = 'none' WHERE tg_id_sender = '{tg_id}';"
+            query: str = f"""UPDATE email_addresses SET yookassa_conf_id = 'none' WHERE 
+                         tg_id_sender = '{tg_id}';"""
             cursor.execute(query)
             connection.commit()
             connection.close()
 
         except Exception as ex:
-            print(ex)
+            logging.warning(
+                f"The exception has arisen: {ex}"
+            )
 
     @staticmethod
-    async def update_analytic_datas() -> None:
+    async def get_analytic_datas() -> tuple:
         """
-        Update analytic datas.
+        Get Analytics.
 
-        :return: None.
+        :return: Tuple with data.
         """
-        connection: pymysql.Connection = await Connection.get_connection(await HandlerDB.get_data())
+        connection: pymysql.Connection = await Connection.get_connection(
+            await HandlerDB.get_data()
+        )
         cursor = connection.cursor()
 
-        query: str = "SELECT count_of_thanks_from_users FROM analytics;"
+        query: str = "SELECT * FROM analytics;"
         cursor.execute(query)
-        count_of_thanks_from_users = cursor.fetchall()
+        response: tuple = cursor.fetchall()
+        connection.close()
 
-        if len(count_of_thanks_from_users) == 0:
-            query: str = f"""INSERT INTO analytics (count_of_thanks_from_users)
-                         VALUES ({1});"""
+        return response
+
+    @staticmethod
+    async def update_analytic_datas_count_ai_queries(count: int = 1) -> None:
+        """
+        Update analytic datas. Update CAQ.
+
+        :param count: Count of AI queries.
+        :return: None.
+        """
+        connection: pymysql.Connection = await Connection.get_connection(
+            await HandlerDB.get_data()
+        )
+        cursor = connection.cursor()
+
+        query: str = "SELECT count_of_ai_queries FROM analytics;"
+        cursor.execute(query)
+        count_of_ai_queries = cursor.fetchall()
+
+        if len(count_of_ai_queries) == 0:
+            query: str = f"""INSERT INTO analytics (count_of_ai_queries)
+                         VALUES ({count});"""
             cursor.execute(query)
         else:
             query: str = f"""UPDATE analytics SET 
-                         count_of_thanks_from_users = {count_of_thanks_from_users[0][0] + 1};"""
+                         count_of_ai_queries = {count_of_ai_queries[0][0] + count};"""
+            cursor.execute(query)
+
+        connection.commit()
+        connection.close()
+
+    @staticmethod
+    async def update_analytic_datas_count_tickets_system(count: int = 1) -> None:
+        """
+        Update count of tickets. Update CTS.
+
+        :param count: Count of Tickets in the TSystem.
+        :return: None.
+        """
+        connection: pymysql.Connection = await Connection.get_connection(
+            await HandlerDB.get_data()
+        )
+        cursor = connection.cursor()
+
+        query: str = "SELECT count_of_tickets_system FROM analytics;"
+        cursor.execute(query)
+        count_of_tickets_system = cursor.fetchall()
+
+        if len(count_of_tickets_system) == 0:
+            query: str = f"""INSERT INTO analytics (count_of_tickets_system)
+                         VALUES ({count});"""
+            cursor.execute(query)
+        else:
+            query: str = f"""UPDATE analytics SET 
+                         count_of_tickets_system = {count_of_tickets_system[0][0] + count};"""
             cursor.execute(query)
 
         connection.commit()
@@ -180,7 +249,9 @@ class HandlerDB:
         :param tg_id: Tg ID.
         :return: Tuple with EMail-data.
         """
-        connection: pymysql.Connection = await Connection.get_connection(await HandlerDB.get_data())
+        connection: pymysql.Connection = await Connection.get_connection(
+            await HandlerDB.get_data()
+        )
         cursor = connection.cursor()
 
         query: str = "SELECT email, firstname FROM email_addresses WHERE tg_id_sender = %s;"
@@ -201,7 +272,9 @@ class HandlerDB:
         :param tg_id: Tg ID.
         :return: Tuple with EMail-code-verification.
         """
-        connection: pymysql.Connection = await Connection.get_connection(await HandlerDB.get_data())
+        connection: pymysql.Connection = await Connection.get_connection(
+            await HandlerDB.get_data()
+        )
         cursor = connection.cursor()
 
         query: str = "SELECT temp_check_code FROM email_addresses WHERE tg_id_sender = %s;"
@@ -235,7 +308,9 @@ class HandlerDB:
 
         :return: Result.
         """
-        connection: pymysql.Connection = await Connection.get_connection(await HandlerDB.get_data())
+        connection: pymysql.Connection = await Connection.get_connection(
+            await HandlerDB.get_data()
+        )
         cursor = connection.cursor()
 
         if command == "add":
@@ -243,11 +318,13 @@ class HandlerDB:
                 check: tuple = await HandlerDB.get_temp_code_for_check_email(tg_id)
                 if check[0] is False:
                     if tg_id != admin_id:
-                        query: str = f"""INSERT INTO email_addresses (email, tg_id_sender, username, firstname, 
-                        temp_check_code) VALUES ('waiting', '{str(tg_id)}', '{username}', '{firstname}', '{code}');"""
+                        query: str = f"""INSERT INTO email_addresses (email, tg_id_sender, 
+                        username, firstname, temp_check_code) VALUES ('waiting', '{str(tg_id)}', 
+                        '{username}', '{firstname}', '{code}');"""
                     else:
-                        query: str = f"""INSERT INTO email_addresses (email, tg_id_sender, username, firstname, 
-                        temp_check_code) VALUES ('ADMIN', '{str(tg_id)}', '{username}', '{firstname}', '{code}');"""
+                        query: str = f"""INSERT INTO email_addresses (email, tg_id_sender, 
+                        username, firstname, temp_check_code) VALUES ('ADMIN', '{str(tg_id)}', 
+                        '{username}', '{firstname}', '{code}');"""
                     cursor.execute(query)
                 else:
                     query: str = f"""UPDATE email_addresses SET temp_check_code = '{code}' 
@@ -259,7 +336,9 @@ class HandlerDB:
                 return True, "Updated", "add"
 
             except Exception as ex:
-                print(ex)
+                logging.warning(
+                    f"The exception has arisen: {ex}"
+                )
                 return False, ex, "add"
 
         elif command == "del":
@@ -285,11 +364,19 @@ class HandlerDB:
                     return False, "None", "del"
 
             except Exception as ex:
-                print(ex)
+                logging.warning(
+                    f"The exception has arisen: {ex}"
+                )
                 return False, ex, "del"
 
     @staticmethod
-    async def add_new_email(email: str, tg_id: int, username: str, firstname: str, exists_in_db=True) -> bool:
+    async def add_new_email(
+            email: str,
+            tg_id: int,
+            username: str,
+            firstname: str,
+            exists_in_db=True
+    ) -> bool:
         """
         Add a new email to DB.
 
@@ -302,15 +389,18 @@ class HandlerDB:
         :return: Result.
         """
         try:
-            connection: pymysql.Connection = await Connection.get_connection(await HandlerDB.get_data())
+            connection: pymysql.Connection = await Connection.get_connection(
+                await HandlerDB.get_data()
+            )
             cursor = connection.cursor()
             if exists_in_db is True:
                 query: str = f"""UPDATE email_addresses SET email = '{email}', 
-                username = '{username}', firstname = '{firstname}' WHERE tg_id_sender = '{tg_id}';"""
+                username = '{username}', firstname = '{firstname}' WHERE tg_id_sender = 
+                '{tg_id}';"""
                 cursor.execute(query)
             else:
-                query: str = f"""INSERT INTO email_addresses (email, username, tg_id_sender, firstname) 
-                VALUES('{email}', '{username}', '{tg_id}', '{firstname}');"""
+                query: str = f"""INSERT INTO email_addresses (email, username, tg_id_sender, 
+                firstname) VALUES('{email}', '{username}', '{tg_id}', '{firstname}');"""
                 cursor.execute(query)
 
             connection.commit()
@@ -318,11 +408,52 @@ class HandlerDB:
             return True
 
         except Exception as ex:
-            print(ex)
+            logging.warning(
+                f"The exception has arisen: {ex}"
+            )
             return False
+        
+    @staticmethod
+    async def add_new_ticket_data(
+        id_ticket: str, 
+        username: str, 
+        tg_id_sender: int, 
+        ticket_data: str, 
+        create_at: str, 
+        subject: str
+    ) -> None:
+        """
+        Function for add new ticket data.
+
+        :param id_ticket: ID Ticket.
+        :param username: Sender's Telegram Username.
+        :param tg_id_sender: Sender's Telegram ID.
+        :param ticket_data: Data of the Ticket.
+        :param create_at: CREATE_AT - data of the ticket.
+        :param subject: Subject of the ticket.
+
+        :return: None.
+        """
+        connection: pymysql.Connection = await Connection.get_connection(
+            await HandlerDB.get_data()
+        )
+        cursor = connection.cursor()
+
+        query = f"""INSERT INTO users (id_ticket, username, tg_id_sender, 
+        ticket_data, create_at, subject) VALUES('{id_ticket}', '{username}', 
+        '{tg_id_sender}', '{ticket_data}', '{create_at}', 
+        '{subject}');"""
+
+        cursor.execute(query)
+
+        connection.commit()
+        connection.close()
 
     @staticmethod
-    async def get_ticket_data(tg_id: int, builder: InlineKeyboardBuilder) -> InlineKeyboardBuilder | tuple:
+    async def get_ticket_data(
+            tg_id: int,
+            builder: InlineKeyboardBuilder
+    ) -> InlineKeyboardBuilder | tuple:
         """
         Get ticket data.
 
@@ -331,10 +462,13 @@ class HandlerDB:
 
         :return: Tuple with data.
         """
-        connection: pymysql.Connection = await Connection.get_connection(await HandlerDB.get_data())
+        connection: pymysql.Connection = await Connection.get_connection(
+            await HandlerDB.get_data()
+        )
         cursor = connection.cursor()
 
-        query: str = f"SELECT id_ticket, create_at, subject FROM users WHERE tg_id_sender = %s ORDER BY create_at DESC;"
+        query: str = f"""SELECT id_ticket, create_at, subject FROM users WHERE 
+                     tg_id_sender = %s ORDER BY create_at DESC;"""
         cursor.execute(query, (str(tg_id),))
 
         result: tuple = cursor.fetchall()
@@ -382,10 +516,13 @@ class HandlerDB:
 
         :return: Tuple with data.
         """
-        connection: pymysql.Connection = await Connection.get_connection(await HandlerDB.get_data())
+        connection: pymysql.Connection = await Connection.get_connection(
+            await HandlerDB.get_data()
+        )
         cursor = connection.cursor()
 
-        query: str = "SELECT id_ticket, username, create_at, subject FROM users ORDER BY create_at DESC;"
+        query: str = """SELECT id_ticket, username, create_at, subject FROM 
+                     users ORDER BY create_at DESC;"""
         cursor.execute(query)
         result: tuple = cursor.fetchall()
 
@@ -398,7 +535,8 @@ class HandlerDB:
             for i in range(len(list(result))):
                 if count_msg <= 5:
                     response += (f"<b>{i + 1}</b>. Sender: "
-                                 f"@{result[i][1]}| ID_TCK: <code>{result[i][0]}</code>| CREATE_AT: "
+                                 f"@{result[i][1]}| ID_TCK: <code>{result[i][0]}</code>| "
+                                 f"CREATE_AT: "
                                  f"{result[i][2]}| Subject: "
                                  f"<blockquote>'{result[i][3]}'</blockquote>\n")
                     count_msg += 1
@@ -436,10 +574,10 @@ class HandlerDB:
             promo: str = "none"
     ) -> tuple:
         """
-        Insert a new record to database | Manager Plus Subscription.
+        Insert a new record to database | CW PREMIUM Subscription.
 
         :param message: Message from user.
-        :param days: Count of days for use PLUS.
+        :param days: Count of days for use CW PREMIUM.
         :param token_successful_payment: Token of successful payment.
         :param promo: A promo code.
 
@@ -448,17 +586,19 @@ class HandlerDB:
         time_of_pay: int = int(time.time())
         ex_time_for_sub: int = time_of_pay + await SubOperations.days_to_sec(days)
 
-        connection: pymysql.Connection = await Connection.get_connection(await HandlerDB.get_data())
+        connection: pymysql.Connection = await Connection.get_connection(
+            await HandlerDB.get_data()
+        )
         cursor = connection.cursor()
 
-        query: str = f"""SELECT subscribe_date FROM plus_users WHERE tg_id = %s;"""
+        query: str = f"""SELECT subscribe_date FROM premium_users WHERE tg_id = %s;"""
         cursor.execute(query, (str(message.from_user.id),))
         result: tuple = cursor.fetchall()
         if len(result) == 0:
-            insert_q = f"""INSERT INTO plus_users (tg_id, username, firstname, cost_in_stars, refund_token,
-                       subscribe_date, promo_code) VALUES ('{message.from_user.id}', '{message.from_user.username}', 
-                       '{message.from_user.first_name}', 1, '{token_successful_payment}', 
-                       {ex_time_for_sub}, '{promo}');"""
+            insert_q = f"""INSERT INTO premium_users (tg_id, username, firstname, cost_in_stars, 
+                       refund_token, subscribe_date, promo_code) VALUES ('{message.from_user.id}', 
+                       '{message.from_user.username}', '{message.from_user.first_name}', 15, 
+                       '{token_successful_payment}', {ex_time_for_sub}, '{promo}');"""
             cursor.execute(insert_q)
             connection.commit()
             connection.close()
@@ -468,10 +608,12 @@ class HandlerDB:
             checked: tuple = await HandlerDB.check_subscription(message)
             if checked[0] is False:
                 if checked[1] == "ex_sub":
-                    update_q = f"""UPDATE plus_users SET username = '{message.from_user.username}',
-                               firstname = '{message.from_user.first_name}', cost_in_stars = 1,
+                    update_q = f"""UPDATE premium_users SET 
+                               username = '{message.from_user.username}',
+                               firstname = '{message.from_user.first_name}', cost_in_stars = 15,
                                refund_token = '{token_successful_payment}',
-                               subscribe_date = {ex_time_for_sub} WHERE tg_id = '{message.from_user.id}';"""
+                               subscribe_date = {ex_time_for_sub} WHERE 
+                               tg_id = '{message.from_user.id}';"""
                     cursor.execute(update_q)
                     connection.commit()
                     connection.close()
@@ -486,16 +628,18 @@ class HandlerDB:
     @staticmethod
     async def delete_record_for_subscribe(ref_token: str) -> tuple:
         """
-        Delete a record from database | Manager Plus Subscription.
+        Delete a record from database | CW PREMIUM Subscription.
 
         :param ref_token: REF-token.
 
         :return: Result of delete.
         """
-        connection: pymysql.Connection = await Connection.get_connection(await HandlerDB.get_data())
+        connection: pymysql.Connection = await Connection.get_connection(
+            await HandlerDB.get_data()
+        )
         cursor = connection.cursor()
 
-        query: str = "SELECT tg_id, firstname FROM plus_users WHERE refund_token = %s;"
+        query: str = "SELECT tg_id, firstname FROM premium_users WHERE refund_token = %s;"
         cursor.execute(query, (ref_token,))
         result: tuple = cursor.fetchall()
         if len(result[0]) == 0:
@@ -505,7 +649,7 @@ class HandlerDB:
             tg_id: str = result[0][0]
             firstname: str = result[0][1]
 
-            del_q: str = "DELETE FROM plus_users WHERE tg_id = %s;"
+            del_q: str = "DELETE FROM premium_users WHERE tg_id = %s;"
             cursor.execute(del_q, (tg_id,))
             connection.commit()
             connection.close()
@@ -520,10 +664,12 @@ class HandlerDB:
 
         :return: tuple.
         """
-        connection: pymysql.Connection = await Connection.get_connection(await HandlerDB.get_data())
+        connection: pymysql.Connection = await Connection.get_connection(
+            await HandlerDB.get_data()
+        )
         cursor = connection.cursor()
 
-        query: str = f"SELECT subscribe_date FROM plus_users WHERE tg_id = %s;"
+        query: str = f"SELECT subscribe_date FROM premium_users WHERE tg_id = %s;"
         cursor.execute(query, (str(message.from_user.id),))
         result: tuple = cursor.fetchall()
         if len(result) == 0:
@@ -550,10 +696,12 @@ class HandlerDB:
 
         :return: Data.
         """
-        connection: pymysql.Connection = await Connection.get_connection(await HandlerDB.get_data())
+        connection: pymysql.Connection = await Connection.get_connection(
+            await HandlerDB.get_data()
+        )
         cursor = connection.cursor()
 
-        query: str = f"SELECT subscribe_date, tg_id FROM plus_users WHERE refund_token = %s;"
+        query: str = f"SELECT subscribe_date, tg_id FROM premium_users WHERE refund_token = %s;"
         cursor.execute(query, (refund_token,))
         result: tuple = cursor.fetchall()
         if len(result) == 0:
@@ -579,9 +727,11 @@ class HandlerDB:
         :param message: Message from user | Callback Query.
         :return: REF-Token or False (otherwise).
         """
-        connection: pymysql.Connection = await Connection.get_connection(await HandlerDB.get_data())
+        connection: pymysql.Connection = await Connection.get_connection(
+            await HandlerDB.get_data()
+        )
         cursor = connection.cursor()
-        query: str = f"SELECT refund_token FROM plus_users WHERE tg_id = %s;"
+        query: str = f"SELECT refund_token FROM premium_users WHERE tg_id = %s;"
         cursor.execute(query, (str(message.from_user.id),))
         result: tuple = cursor.fetchall()
 
@@ -594,17 +744,19 @@ class HandlerDB:
             return False
 
     @staticmethod
-    async def check_promo_code(promo: str) -> bool | tuple:
+    async def check_promo_code(promo: str) ->  tuple:
         """
         Get and check promo code from database.
 
         :param promo: Promo code from user.
         :return: Result | Data of promo.
         """
-        connection: pymysql.Connection = await Connection.get_connection(await HandlerDB.get_data())
+        connection: pymysql.Connection = await Connection.get_connection(
+            await HandlerDB.get_data()
+        )
         cursor = connection.cursor()
 
-        query: str = "SELECT num_uses, type_promo FROM plus_promo_codes WHERE promo_code = %s;"
+        query: str = "SELECT num_uses, type_promo FROM premium_promo_codes WHERE promo_code = %s;"
         cursor.execute(query, (promo,))
         result = cursor.fetchall()
         if len(result) == 0:
@@ -624,10 +776,12 @@ class HandlerDB:
         :param promo: Promo code.
         :return: Result | Data of promo.
         """
-        connection: pymysql.Connection = await Connection.get_connection(await HandlerDB.get_data())
+        connection: pymysql.Connection = await Connection.get_connection(
+            await HandlerDB.get_data()
+        )
         cursor = connection.cursor()
 
-        query: str = "SELECT num_uses FROM plus_promo_codes WHERE promo_code = %s;"
+        query: str = "SELECT num_uses FROM premium_promo_codes WHERE promo_code = %s;"
         cursor.execute(query, (promo,))
         result = cursor.fetchall()
         if len(result) == 0 or result[0][0] == 0:
@@ -636,14 +790,14 @@ class HandlerDB:
             return False,
         else:
             if result[0][0] > 1:
-                query: str = f"UPDATE plus_promo_codes SET num_uses = {result[0][0] - 1};"
+                query: str = f"UPDATE premium_promo_codes SET num_uses = {result[0][0] - 1};"
                 cursor.execute(query)
                 connection.commit()
                 connection.close()
 
                 return True, "many"
             elif result[0][0] == 1:
-                query: str = f"UPDATE plus_promo_codes SET num_uses = {result[0][0] - 1};"
+                query: str = f"UPDATE premium_promo_codes SET num_uses = {result[0][0] - 1};"
                 cursor.execute(query)
                 connection.commit()
                 connection.close()
@@ -657,10 +811,12 @@ class HandlerDB:
 
         :return: PROMO Data.
         """
-        connection: pymysql.Connection = await Connection().get_connection(await HandlerDB.get_data())
+        connection: pymysql.Connection = await Connection.get_connection(
+            await HandlerDB.get_data()
+        )
         cursor = connection.cursor()
 
-        query: str = "SELECT promo_code, num_uses, type_promo FROM plus_promo_codes;"
+        query: str = "SELECT promo_code, num_uses, type_promo FROM premium_promo_codes;"
         cursor.execute(query)
         result = cursor.fetchall()
         if len(result) == 0:
@@ -684,7 +840,7 @@ class HandlerDB:
                 return True, datas
 
     @staticmethod
-    async def add_new_promo_code(promo: str, num_uses: int, type_promo: str) ->  tuple:
+    async def add_new_promo_code(promo: str, num_uses: int, type_promo: str) -> tuple:
         """
         Function for add a new promo code from admin. | Admin control.
 
@@ -694,16 +850,19 @@ class HandlerDB:
 
         :return: Result | Data of promo.
         """
-        connection: pymysql.Connection = await Connection.get_connection(await HandlerDB.get_data())
+        connection: pymysql.Connection = await Connection.get_connection(
+            await HandlerDB.get_data()
+        )
         cursor = connection.cursor()
 
-        query: str = "SELECT num_uses FROM plus_promo_codes WHERE promo_code = %s;"
+        query: str = "SELECT num_uses FROM premium_promo_codes WHERE promo_code = %s;"
         cursor.execute(query, (promo,))
         result = cursor.fetchall()
         if len(result) == 0:
-            if type_promo == "plus_one_week" or type_promo == "plus_five_days" or type_promo == "plus_month":
-                query: str = f"""INSERT INTO plus_promo_codes (promo_code, num_uses, type_promo) VALUES ('{promo}', 
-                             {num_uses}, '{type_promo}');"""
+            if (type_promo == "premium_one_week" or type_promo == "premium_five_days" or
+                    type_promo == "premium_month"):
+                query: str = f"""INSERT INTO premium_promo_codes (promo_code, num_uses, 
+                             type_promo) VALUES ('{promo}', {num_uses}, '{type_promo}');"""
                 cursor.execute(query)
                 connection.commit()
 
@@ -728,19 +887,21 @@ class HandlerDB:
         :param promo: A promo code.
         :return: Result of delete a promo code.
         """
-        connection: pymysql.Connection = await Connection.get_connection(await HandlerDB.get_data())
+        connection: pymysql.Connection = await Connection.get_connection(
+            await HandlerDB.get_data()
+        )
         cursor = connection.cursor()
 
-        query: str = "SELECT num_uses FROM plus_promo_codes WHERE promo_code = %s;"
+        query: str = "SELECT num_uses FROM premium_promo_codes WHERE promo_code = %s;"
         cursor.execute(query, (promo,))
         result = cursor.fetchall()
 
-        if len(result) == 0 or result[0][0] != 0:
+        if len(result) == 0 or result[0][0] == 0:
             connection.close()
 
             return False
         else:
-            del_query: str = "DELETE FROM plus_promo_codes WHERE promo_code = %s;"
+            del_query: str = "DELETE FROM premium_promo_codes WHERE promo_code = %s;"
             cursor.execute(del_query, (promo,))
             connection.commit()
 

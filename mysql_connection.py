@@ -3,8 +3,8 @@ Module of the connection to MySQL Server for get CONNECTION-object for
 manage DataBase (DB).
 """
 import datetime
-
 import pymysql
+import logging
 
 
 class Connection:
@@ -30,11 +30,13 @@ class Connection:
                 port=mysql_data["PORT"]
             )
 
-        except Exception as e:
-            with open("logs.txt", 'a') as logs:
-                logs.write(f"{datetime.datetime.now()} | {e} | "
-                           f"The error of database in __init__ of "
-                           f"mysql_connection.py of Connection-Class.\n")
+        except Exception as ex:
+            logging.warning(f"No connection to the Database (MySQL) occurred! "
+                            f"The exception has arisen: {ex}")
             connection: str = "Error of connection"
+
+        logging.info(
+            "Successful connection to the database (MySQL)"
+        )
 
         return connection

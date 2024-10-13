@@ -1,4 +1,6 @@
 """Module of send invoice to users."""
+import logging
+
 from aiogram import Bot, types, Router, F
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
@@ -12,39 +14,50 @@ router_send_invoice: Router = Router()
 
 class ChooseMethodOfPayment:
     """Class for choose method of payment."""
-    def __init__(self, bot: Bot, admin_id: int) -> None:
+    def __init__(
+            self,
+            bot: Bot,
+            admin_id: int
+    ) -> None:
         self.__bot: Bot = bot
         self.__admin_id: int = admin_id
 
-    async def choose_step1(self, call: types.CallbackQuery) -> None:
+    async def choose_step1(
+            self,
+            call: types.CallbackQuery
+    ) -> None:
         """
         Choose method of payment. Step 1.
 
         :param call: Callback Query.
         :return: None.
         """
-        var: InlineKeyboardBuilder = await Buttons.get_plus_process_choosing()
+        var: InlineKeyboardBuilder = await Buttons.get_premium_process_choosing()
         await self.__bot.edit_message_text(
-            text=f"❤ <b>{call.from_user.first_name}</b>, please, choose the method of payment below.",
+            text=f"❤ <b>{call.from_user.first_name}</b>, please, choose the method of payment "
+                 f"below.",
             chat_id=call.from_user.id,
             message_id=call.message.message_id,
             reply_markup=var.as_markup(),
             parse_mode="HTML"
         )
         router_send_invoice.callback_query.register(
-            self.__continue_subscribe_plus_with_yookassa,
-            F.data == "continue_subscribe_plus_with_yookassa"
+            self.__continue_subscribe_premium_with_yookassa,
+            F.data == "continue_subscribe_premium_with_yookassa"
         )
         router_send_invoice.callback_query.register(
-            self.__continue_subscribe_plus_with_telegram_stars,
-            F.data == "continue_subscribe_plus_with_telegram_stars"
+            self.__continue_subscribe_premium_with_telegram_stars,
+            F.data == "continue_subscribe_premium_with_telegram_stars"
         )
         router_send_invoice.callback_query.register(
             self.check_pay_yookassa,
             F.data == "check_pay_yookassa"
         )
 
-    async def __continue_subscribe_plus_with_yookassa(self, call: types.CallbackQuery) -> None:
+    async def __continue_subscribe_premium_with_yookassa(
+            self,
+            call: types.CallbackQuery
+    ) -> None:
         """
         Continue payment. | Yookassa-Method.
 
@@ -68,20 +81,30 @@ class ChooseMethodOfPayment:
 
             var: InlineKeyboardBuilder = await Buttons.get_menu_yookassa_payment(url)
             await self.__bot.edit_message_text(
-                text=f"✨ <b>{call.from_user.first_name}, perfect!</b> Click on the button below (💳 <b>Pay</b>) "
-                     f"and then click on the <b>Check </b>🔑.\nIf button isn't activated, please, return to the "
-                     f"main-menu (/start) and click on the: <b>GET PLUS</b> 🔥 (<b>👑 MY PLUS ➕</b>) -> "
-                     f"<b>Get PLUS 💥 | -55%</b> -> 🔑 <b>Check payment</b>.\n\n"
-                     f"ID: {confirmation_id}",
+                text=f"✨ {call.from_user.first_name}, perfect!\n\nClick on the button below "
+                     f"(💳 <b>Pay</b>) and then click on the <b>Check </b>🔑.\n\nIf button "
+                     f"isn't activated, please, return to the main-menu (/start) and click on "
+                     f"the: <b>GET CW PREMIUM</b> 🔥 (or <b>👑 MY CW PREMIUM 🌟</b>) -> "
+                     f"<b>Get CW PREMIUM 💥 | -55%</b> -> 🔑 <b>Check payment</b>.\n\n"
+                     f"ID: <code>{confirmation_id}</code>",
                 chat_id=call.from_user.id,
                 message_id=call.message.message_id,
                 reply_markup=var.as_markup(),
                 parse_mode="HTML"
             )
+            await self.__bot.send_photo(
+                chat_id=call.from_user.id,
+                photo="https://telegra.ph/file/024c640166958255f5cab.jpg",
+                message_effect_id="5159385139981059251",
+                caption=f"⚡ See the invoice for payment above (for one message) 👆🏻."
+            )
         except Exception as ex:
-            print(ex)
+            logging.warning(f"The exception has arisen: {ex}.")
 
-    async def check_pay_yookassa(self, call: types.CallbackQuery) -> None:
+    async def check_pay_yookassa(
+            self,
+            call: types.CallbackQuery
+    ) -> None:
         """
         Check pay Yookassa.
 
@@ -109,29 +132,53 @@ class ChooseMethodOfPayment:
                          f"❕ Please, write to admin.",
                     show_alert=True
                 )
+                logging.warning(
+                    f"Payment verification - unsuccessful as it was canceled by system! User ID: "
+                    f"{call.from_user.id}"
+                )
+
             else:
                 await self.__bot.answer_callback_query(
                     callback_query_id=call.id,
-                    text=f"❌ {call.from_user.first_name}, fail! It looks like you haven't paid the bill! Try again.\n"
-                         f"❕ If you are sure that you have paid for it, then write to the admin / TicketSystem.",
+                    text=f"❌ {call.from_user.first_name}, fail! It looks like you haven't paid "
+                         f"the bill! Try again.\n❕ If you are sure that you have paid for "
+                         f"it, then write to the admin / TicketSystem.",
                     show_alert=True
+                )
+                logging.warning(
+                    f"Payment verification - unsuccessful as it has not been paid! User ID: "
+                    f"{call.from_user.id}"
                 )
 
         elif result[0] is False and result[1] == "None":
             await self.__bot.answer_callback_query(
                 callback_query_id=call.id,
-                text=f"❌ {call.from_user.first_name}, fail! Payment wasn't created!\n❕ Please, write to admin.",
+                text=f"❌ {call.from_user.first_name}, fail! Payment wasn't created!\n❕ "
+                     f"Please, write to admin.",
                 show_alert=True
             )
+            logging.warning(
+                f"Payment verification - unsuccessful as it has not been created! User ID: "
+                f"{call.from_user.id}"
+            )
+
         else:
             await self.__bot.answer_callback_query(
                 callback_query_id=call.id,
-                text=f"❌ {call.from_user.first_name}, fail! Please, try again: return to the main-menu (/start) "
-                     f"and click on the: GET PLUS 🔥 -> 🔑 Check payment.",
+                text=f"❌ {call.from_user.first_name}, fail! Please, try again: return to "
+                     f"the main-menu (/start) and click on the: GET PREMIUM "
+                     f"🔥 -> 🔑 Check payment.",
                 show_alert=True
             )
+            logging.warning(
+                f"Payment verification - unsuccessful! User ID: "
+                f"{call.from_user.id}"
+            )
 
-    async def __continue_subscribe_plus_with_telegram_stars(self, call: types.CallbackQuery) -> None:
+    async def __continue_subscribe_premium_with_telegram_stars(
+            self,
+            call: types.CallbackQuery
+    ) -> None:
         """
         Continue payment. | TelegramStars-Method.
 
@@ -152,7 +199,7 @@ class ChooseMethodOfPayment:
 
 
 class SendInvoice:
-    """Class of the send invoice to users for buy/pay plus-subscription."""
+    """Class of the send invoice to users for buy/pay premium-subscription."""
     def __init__(
             self, 
             bot: Bot,
@@ -170,22 +217,26 @@ class SendInvoice:
         """
         await self.__bot.send_invoice(
             chat_id=self.__chat_id,
-            title="Manager CW Plus Version",
-            description=f"Plus-functions for the user {self.__message.from_user.first_name}.",
+            title="CW Premium",
+            description=f"Premium-functions for the user {self.__message.from_user.first_name}.",
             provider_token="",
             currency="XTR",
             prices=[types.LabeledPrice(
-                label="Plus Manager CW Bot",
-                amount=10
+                label="CW Premium",
+                amount=15
             )],
-            photo_url="https://i.postimg.cc/9MYL5XPq/plus-subs-manager-cw-bot.jpg",
-            photo_size=67000,
-            photo_width=700,
-            photo_height=700,
+            photo_url="https://telegra.ph/file/024c640166958255f5cab.jpg",
+            photo_size=80000,
+            photo_width=800,
+            photo_height=610,
             payload="Invoice",
             reply_markup=InlineKeyboardBuilder().row(types.InlineKeyboardButton(
                 text=f"⭐️ Telegram Stars", pay=True
             )).as_markup(),
+        )
+
+        logging.info(
+            "Successful billing for Telegram XTR currency payment | First payment"
         )
 
     async def send_invoice_extend(self) -> None:
@@ -196,21 +247,25 @@ class SendInvoice:
         """
         await self.__bot.send_invoice(
             chat_id=self.__chat_id,
-            title="Manager CW Plus Version",
+            title="CW Premium",
             description=f"The subscription renewal. "
-                        f"Plus-functions for the user {self.__message.from_user.first_name}.",
+                        f"Premium-functions for the user {self.__message.from_user.first_name}.",
             payload="Invoice",
             provider_token="",
             currency="XTR",
             prices=[types.LabeledPrice(
-                label="Plus Manager CW Bot",
-                amount=10
+                label="CW Premium",
+                amount=15
             )],
-            photo_url="https://i.postimg.cc/9MYL5XPq/plus-subs-manager-cw-bot.jpg",
-            photo_size=67000,
-            photo_width=700,
-            photo_height=700,
+            photo_url="https://telegra.ph/file/024c640166958255f5cab.jpg",
+            photo_size=80000,
+            photo_width=800,
+            photo_height=610,
             reply_markup=InlineKeyboardBuilder().row(types.InlineKeyboardButton(
                 text=f"⭐️ Telegram Stars", pay=True
             )).as_markup()
+        )
+
+        logging.info(
+            "Successful billing for Telegram XTR currency payment | Second payment"
         )
